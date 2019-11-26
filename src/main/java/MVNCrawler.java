@@ -17,11 +17,16 @@
  */
 
 
+import java.io.BufferedReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 import org.apache.commons.csv.CSVFormat;
@@ -128,27 +133,89 @@ public class MVNCrawler {
         this.csvFileName = csvFileName;
     }
 
-    public void startCrawler() throws IOException {
-        List<MVNProject> extractedProjects = this.extractMVNProjects(this.getPOMFiles());
-        this.projectsToCSV(extractedProjects);
+    public void startCrawler() throws IOException, InterruptedException {
+        HashSet<String> pomFiles =  this.findPOMFiles(this.mvnRepo, new HashSet<String>());
+
+        System.out.println("Finished...");
+        for(String f: pomFiles) System.out.println(f);
+
+        savePOMFiles("pomFiles.txt", pomFiles);
+
+        //List<MVNProject> extractedProjects = this.extractMVNProjects(this.getPOMFiles());
+        //this.projectsToCSV(extractedProjects);
+    }
+
+    private static void savePOMFiles(String fileName, HashSet<String> pomFiles) throws IOException {
+        FileWriter f = new FileWriter(fileName);
+        for(String pf : pomFiles){
+            f.write(pf + System.lineSeparator());
+        }
+        f.close();
+    }
+
+    private static boolean isURLFile(String URL) throws URISyntaxException {
+        /**
+         * A utility method to check whether a URL is a file or not.
+         */
+
+        URI uri = new URI(URL);
+        String[] urlSegments = uri.getPath().split("/");
+        String lastSeg = urlSegments[urlSegments.length - 1];
+
+        return lastSeg.matches(".+\\.\\w+");
+
+    }
+
+    private HashSet<String> findPOMFiles(String URL, HashSet<String> pomFiles, int cooldown) throws IOException, InterruptedException {
+        /**
+         * Finds all the POM files in given Maven repos recursively.
+         */
+
+        HashSet<String> links = new HashSet<>(); // Keeps track of links
+
+        if(!links.contains(URL)){
+
+            try {
+                // Checks whether link is a valid dir
+                if (!isURLFile(URL)){
+                    links.add(URL);
+
+                    // Wait up to specified time for avoiding blocking the IP
+                    Thread.sleep(1000 * cooldown);
+
+                    Document doc = Jsoup.connect(URL).get();
+                    Elements linksOnPage = doc.select("a[href]");
+
+                    //int i = 0;
+                    for (Element link : linksOnPage) {
+                        // Excludes up level dirs (e.g. ../)
+
+                        //if(i <= 10){
+                        if(!link.text().matches("\\.\\./")){
+                            System.out.println(link.attr("abs:href"));
+                            findPOMFiles(link.attr("abs:href"), pomFiles, cooldown);
+                            //}
+                        } else break;
+
+                        //i++;
+                    }
+
+                } else if (URL.matches(".+\\.pom")) {
+                    pomFiles.add(URL);
+                    System.out.println("Found a pom file: " + URL);
+                }
+            } catch (IOException | URISyntaxException e) {
+                System.out.println("For '" + URL + "': " + e.getMessage());
+            }
+        }
+
+        return pomFiles;
     }
 
     // TODO: It doesn't get all the POM Files, there are rare cases... hierarchy of files might be deeper!
     private HashMap<String, HashMap<String, HashMap<String, POMFile>>> getPOMFiles() throws IOException {
 
-        //Runtime rt = Runtime.getRuntime();
 
-//        String[] args = new String[] {"/bin/bash", "-c", "wget -q -O - -p --user-agent=\"Mozilla/5.0 " +
-////                "(Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/51.0.2704.103 Safari/537.36\" " +
-////                "http://repo2.maven.apache.org/maven2/" };
-////        Process proc = new ProcessBuilder(args).start();
-////
-////        BufferedReader stdError = new BufferedReader(new InputStreamReader(proc.getInputStream()));
-////
-////        String s = null;
-////        while ((s = stdError.readLine()) != null){
-////            System.out.println(s);
-////        }
 
         Document doc = Jsoup.connect(mvnRepo).get();
         Elements links = doc.getElementsByTag("a");
@@ -281,7 +348,7 @@ public class MVNCrawler {
         csvFile.close();
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, InterruptedException {
         MVNCrawler crawler =  new MVNCrawler("mvn_repo.csv");
         crawler.startCrawler();
     }
