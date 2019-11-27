@@ -133,13 +133,22 @@ public class MVNCrawler {
         this.csvFileName = csvFileName;
     }
 
-    public void startCrawler() throws IOException, InterruptedException {
-        HashSet<String> pomFiles =  this.findPOMFiles(this.mvnRepo, new HashSet<String>());
+    public void startCrawler() throws IOException, InterruptedException, URISyntaxException {
 
+
+        // Two files for saving POM files and errors
+        FileWriter pomFile = new FileWriter("pomFiles_Nov27.txt");
+        FileWriter pomError = new FileWriter("pomError_Nov27.txt");
+
+        HashSet<String> pomFiles =  this.findPOMFiles(this.mvnRepo, new HashSet<String>(), 0.45, pomFile, pomError);
+
+        pomFile.close();
+        pomError.close();
         System.out.println("Finished...");
-        for(String f: pomFiles) System.out.println(f);
 
-        savePOMFiles("pomFiles.txt", pomFiles);
+        //for(String f: pomFiles) System.out.println(f);
+
+        //savePOMFiles("pomFiles_Nov27.txt", pomFiles);
 
         //List<MVNProject> extractedProjects = this.extractMVNProjects(this.getPOMFiles());
         //this.projectsToCSV(extractedProjects);
@@ -166,7 +175,8 @@ public class MVNCrawler {
 
     }
 
-    private HashSet<String> findPOMFiles(String URL, HashSet<String> pomFiles, int cooldown) throws IOException, InterruptedException {
+    private HashSet<String> findPOMFiles(String URL, HashSet<String> pomFiles, double cooldown, FileWriter pomFile,
+                                         FileWriter pomError) throws IOException, InterruptedException, URISyntaxException {
         /**
          * Finds all the POM files in given Maven repos recursively.
          */
@@ -175,37 +185,35 @@ public class MVNCrawler {
 
         if(!links.contains(URL)){
 
-            try {
-                // Checks whether link is a valid dir
-                if (!isURLFile(URL)){
-                    links.add(URL);
+            // Checks whether link is a valid dir
+            if (!isURLFile(URL)) {
+                links.add(URL);
 
-                    // Wait up to specified time for avoiding blocking the IP
-                    Thread.sleep(1000 * cooldown);
+                // Wait up to specified time for avoiding blocking the IP
+                Thread.sleep((long) ((long) 1000 * cooldown));
 
+                try {
                     Document doc = Jsoup.connect(URL).get();
                     Elements linksOnPage = doc.select("a[href]");
 
                     //int i = 0;
                     for (Element link : linksOnPage) {
                         // Excludes up level dirs (e.g. ../)
-
                         //if(i <= 10){
-                        if(!link.text().matches("\\.\\./")){
-                            System.out.println(link.attr("abs:href"));
-                            findPOMFiles(link.attr("abs:href"), pomFiles, cooldown);
-                            //}
-                        } else break;
-
-                        //i++;
+                        if (!link.text().matches("\\.\\./")) {
+                            findPOMFiles(link.attr("abs:href"), pomFiles, cooldown, pomFile, pomError);
+                        }
                     }
 
-                } else if (URL.matches(".+\\.pom")) {
-                    pomFiles.add(URL);
-                    System.out.println("Found a pom file: " + URL);
+                } catch (Exception e) {
+                    pomError.write("For '" + URL + "': " + e.getMessage() + System.lineSeparator());
+                    System.out.println("For '" + URL + "': " + e.getMessage());
+
                 }
-            } catch (IOException | URISyntaxException e) {
-                System.out.println("For '" + URL + "': " + e.getMessage());
+            } else if (URL.matches(".+\\.pom")) {
+                pomFile.write(URL + System.lineSeparator());
+                pomFiles.add(URL);
+                System.out.println("Found a pom file: " + URL);
             }
         }
 
@@ -348,7 +356,7 @@ public class MVNCrawler {
         csvFile.close();
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException {
+    public static void main(String[] args) throws IOException, InterruptedException, URISyntaxException {
         MVNCrawler crawler =  new MVNCrawler("mvn_repo.csv");
         crawler.startCrawler();
     }
