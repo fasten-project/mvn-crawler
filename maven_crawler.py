@@ -150,9 +150,10 @@ def extract_pom_files(url, dest, next_sibling, cooldown, mvn_coord_producer):
                 download_pom(urljoin(url, a['href']), a['href'], join(MVN_PATH, dest))
                 mvn_coords = process_pom_file(join(MVN_PATH, dest, a['href']))
                 mvn_coords['date'] = timestamp[0] + " " + timestamp[1]
-                print(mvn_coords)
 
-                mvn_coord_producer.put(mvn_coords)
+                if mvn_coords['date'] != "- -":
+                    print(mvn_coords)
+                    mvn_coord_producer.put(mvn_coords)
 
                 #csv_writer[0].writerow([gid, aid, ver, timestamp[0] + " " + timestamp[1]])
                 #csv_writer[1].flush()
