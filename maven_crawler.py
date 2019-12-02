@@ -45,7 +45,8 @@ class MavenCoordProducer:
 
     def __init__(self, server_address):
         self.server_address = server_address
-        self.kafka_producer = KafkaProducer(bootstrap_servers=[server_address])
+        self.kafka_producer = KafkaProducer(bootstrap_servers=[server_address],
+                                            value_serializer=lambda m: json.dumps(m).encode('utf-8'))
 
     def put(self, mvn_coords):
         """
@@ -55,10 +56,9 @@ class MavenCoordProducer:
         :return:
         """
 
-        for k, v in mvn_coords.items():
-
-            self.kafka_producer.send('maven.packages', key=k.encode('utf-8'),
-                                     value=v.encode("utf-8")).add_callback(self.on_send_success).add_errback(self.on_send_error)
+        self.kafka_producer.send('maven.packages', key=("%s:%s:%s" % (mvn_coords['groupId'], mvn_coords['artifactId'],
+                                                                  mvn_coords['version'])).encode('utf-8'),
+                                 value=mvn_coords).add_callback(self.on_send_success).add_errback(self.on_send_error)
 
     def on_send_success(self, record_metadata):
         print(record_metadata.topic)
