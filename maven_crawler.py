@@ -24,6 +24,7 @@ from urllib.request import urlopen
 from urllib.parse import urlparse, urljoin
 from os.path import split, exists, join
 from os import makedirs
+from datetime import datetime
 import re
 import time
 import json
@@ -93,6 +94,20 @@ def download_pom(url, pom_file_name, path):
         pom_f.write(response.content)
 
 
+def convert_to_unix_epoch(datetime_str):
+    """
+    Converts Maven's timestamps to UNIX epochs
+    :param datetime_str:
+    :return:
+    """
+
+    date, time = datetime_str.split(" ")
+    year, month, day = date.split("-")
+    hour, min = time.split(":")
+
+    return int(datetime(int(year), int(month), int(day), int(hour), int(min)).timestamp())
+
+
 def process_pom_file(path):
     """
     Extracts groupID, artifactID and version from a POM file.
@@ -149,10 +164,13 @@ def extract_pom_files(url, dest, next_sibling, cooldown, mvn_coord_producer):
                 timestamp = next_sibling.split()
                 download_pom(urljoin(url, a['href']), a['href'], join(MVN_PATH, dest))
                 mvn_coords = process_pom_file(join(MVN_PATH, dest, a['href']))
+                # TODO: Fix date: convert to UNIX epoch
                 mvn_coords['date'] = timestamp[0] + " " + timestamp[1]
-                print(mvn_coords)
 
-                mvn_coord_producer.put(mvn_coords)
+                if mvn_coords['date'] != "- -":
+                    mvn_coords['date'] = str(convert_to_unix_epoch(mvn_coords['date']))
+                    print(mvn_coords['date'])
+                    mvn_coord_producer.put(mvn_coords)
 
                 #csv_writer[0].writerow([gid, aid, ver, timestamp[0] + " " + timestamp[1]])
                 #csv_writer[1].flush()
@@ -164,7 +182,7 @@ def extract_pom_files(url, dest, next_sibling, cooldown, mvn_coord_producer):
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description="A Python cralwer for getting Maven coordinates and put them in a Kafka topic.")
+    parser = argparse.ArgumentParser(description="A Python crawler for getting Maven coordinates and put them in a Kafka topic.")
     parser.add_argument("--m", required=True, type=str, help="The URL of Maven repositories")
     parser.add_argument("--p", required=True, type=str, help="The local path to save the POM files.")
     parser.add_argument("--c", default=0.5, type=float, help="How longs the crawler waits before sending a request")
