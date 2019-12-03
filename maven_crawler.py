@@ -46,7 +46,7 @@ class MavenCoordProducer:
     def __init__(self, server_address):
         self.server_address = server_address
         self.kafka_producer = KafkaProducer(bootstrap_servers=[server_address],
-                                            value_serializer=lambda m: json.dumps(m).encode('utf-8'))
+                                            value_serializer=lambda m: json.dumps(m).encode('utf-8'), api_version=(2,2,0))
 
     def put(self, mvn_coords):
         """
