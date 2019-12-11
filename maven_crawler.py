@@ -22,7 +22,7 @@ from bs4 import BeautifulSoup
 from kafka import KafkaProducer
 from urllib.request import urlopen
 from urllib.parse import urlparse, urljoin
-from os.path import split, exists, join
+from os.path import split, exists, join, isfile
 from os import makedirs
 from datetime import datetime
 import re
@@ -160,11 +160,19 @@ def extract_pom_files(url, dest, next_sibling, cooldown, mvn_coord_producer):
                 #print("Found a POM file: ", a['href'])
                 #print("Timestamp: ", next_sibling.split())
 
+                # Checks whether the POM file is already downloaded.
+                if not isfile(join(MVN_PATH, dest, a['href'])):
+
+                    download_pom(urljoin(url, a['href']), a['href'], join(MVN_PATH, dest))
+                    print("Downloaded %s" % join(MVN_PATH, dest, a['href']))
+
+                else:
+                    print("File %s exits." % join(MVN_PATH, dest, a['href']))
+
+                mvn_coords = process_pom_file(join(MVN_PATH, dest, a['href']))
+
                 # TODO: For some projects, timestamp is not retrieved properly!
                 timestamp = next_sibling.split()
-                download_pom(urljoin(url, a['href']), a['href'], join(MVN_PATH, dest))
-                mvn_coords = process_pom_file(join(MVN_PATH, dest, a['href']))
-                # TODO: Fix date: convert to UNIX epoch
                 mvn_coords['date'] = timestamp[0] + " " + timestamp[1]
 
                 if mvn_coords['date'] != "- -":
