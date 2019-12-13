@@ -27,6 +27,7 @@ from collections import deque
 from os import makedirs
 from datetime import datetime
 import re
+import csv
 import time
 import json
 import warnings
@@ -209,7 +210,33 @@ def process_pom_file(path):
 #         mvn_coord_producer.kafka_producer.flush()
 
 
-def extract_pom_files(url, dest, cooldown, mvn_coord_producer):
+def save_queue(items, path):
+    """
+    It saves the queue items on the disk.
+    :param items:
+    :param path:
+    :return:
+    """
+
+    with open(path, 'w', newline="") as f:
+        writer = csv.writer(f)
+        writer.writerows(items)
+
+def load_queue(path):
+    """
+    Loads the items of a queue file into a list
+    :param path:
+    :return:
+    """
+
+    with open(path, 'r') as f:
+        reader = csv.reader(f)
+        items = [PageLink(i[0], i[1], i[2]) for i in reader]
+
+    return items
+
+
+def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
     """
     Extracts the POM files from given maven repository and puts them in a Kafka topic. It is a non-recursive approach
     and uses a queue.
@@ -221,13 +248,26 @@ def extract_pom_files(url, dest, cooldown, mvn_coord_producer):
     :return:
     """
 
+    if exists(queue_file):
+        q = deque(load_queue(queue_file))
+        print("Loaded the queue items from the file...")
+    else:
+        links_list = [PageLink(urljoin(url, u['href']), u['href'], u.next_sibling.strip()) for u in extract_page_links(url)[1:]]
+        q = deque(links_list)
+        save_queue([[i.url, i.file_h, i.timestamp] for i in links_list], queue_file)
+        print("Downloaded and saved the queue....")
+
     # A queue
-    q = deque([PageLink(urljoin(url, u['href']), u['href'], u.next_sibling.strip()) for u in extract_page_links(url)[1:]])
+    #q = deque([PageLink(urljoin(url, u['href']), u['href'], u.next_sibling.strip()) for u in extract_page_links(url)[1:]])
+    # links_list = [PageLink(urljoin(url, u['href']), u['href'], u.next_sibling.strip()) for u in extract_page_links(url)[1:]]
+    # q = deque(links_list)
+    # save_queue([[i.url, i.file_h, i.timestamp] for i in links_list], "q_items.txt")
+    # print([[i.url, i.file_h, i.timestamp] for i in links_list])
 
     #r = 1
-    #j = 0
+    j = 0
 
-    while len(q) != 0:
+    while len(q) != 0 and j <= 7:
 
         # Picks one item from the beginning of the queue
         u = q.popleft()
@@ -241,7 +281,7 @@ def extract_pom_files(url, dest, cooldown, mvn_coord_producer):
             # Wait before sending a request
             time.sleep(cooldown)
 
-            r += 1
+            #r += 1
             # Skips the up-level dir. (e.g. \..)
             for pl in extract_page_links(u.url)[1:]:
                 #print("URL:", urljoin(u.url, pl['href']), "FH: ", join(u.file_h, pl['href']), "TS: ", pl.next_sibling.strip())
@@ -250,7 +290,7 @@ def extract_pom_files(url, dest, cooldown, mvn_coord_producer):
 
         elif bool(re.match(r".+\.pom$", u.url)):
             print("Found a POM file: ", u.url)
-            #j += 1
+            j += 1
 
             # Checks whether the POM file is already downloaded.
             if not isfile(join(dest, u.file_h)):
@@ -274,6 +314,7 @@ def extract_pom_files(url, dest, cooldown, mvn_coord_producer):
                 mvn_coord_producer.put(mvn_coords)
 
         #print("R: ", r)
+        save_queue([[items.url, items.file_h, items.timestamp] for items in list(q)], queue_file)
 
     mvn_coord_producer.kafka_producer.flush()
 
@@ -295,6 +336,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="A Python crawler for getting Maven coordinates and put them in a Kafka topic.")
     parser.add_argument("--m", required=True, type=str, help="The URL of Maven repositories")
     parser.add_argument("--p", required=True, type=str, help="The local path to save the POM files.")
+    parser.add_argument("--q", required=True, type=str, help="The file of queue items")
     parser.add_argument("--c", default=0.5, type=float, help="How longs the crawler waits before sending a request")
     parser.add_argument("--h", default="localhost:9092", type=str, help="The address of Kafka cluster")
 
@@ -304,4 +346,4 @@ if __name__ == '__main__':
     mvn_producer = MavenCoordProducer(args.h)
 
     #extract_pom_files(args.m, '', None, args.c, mvn_producer)
-    extract_pom_files(args.m, MVN_PATH, args.c, mvn_producer)
+    extract_pom_files(args.m, MVN_PATH, args.q, args.c, mvn_producer)
