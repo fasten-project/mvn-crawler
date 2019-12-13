@@ -224,10 +224,10 @@ def extract_pom_files(url, dest, cooldown, mvn_coord_producer):
     # A queue
     q = deque([PageLink(urljoin(url, u['href']), u['href'], u.next_sibling.strip()) for u in extract_page_links(url)[1:]])
 
-    r = 1
-    j = 0
+    #r = 1
+    #j = 0
 
-    while len(q) != 0 and j <= 5:
+    while len(q) != 0:
 
         # Picks one item from the beginning of the queue
         u = q.popleft()
@@ -250,7 +250,7 @@ def extract_pom_files(url, dest, cooldown, mvn_coord_producer):
 
         elif bool(re.match(r".+\.pom$", u.url)):
             print("Found a POM file: ", u.url)
-            j += 1
+            #j += 1
 
             # Checks whether the POM file is already downloaded.
             if not isfile(join(dest, u.file_h)):
@@ -273,7 +273,7 @@ def extract_pom_files(url, dest, cooldown, mvn_coord_producer):
                 print(mvn_coords['date'])
                 mvn_coord_producer.put(mvn_coords)
 
-        print("R: ", r)
+        #print("R: ", r)
 
     mvn_coord_producer.kafka_producer.flush()
 
