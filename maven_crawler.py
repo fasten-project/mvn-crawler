@@ -49,7 +49,7 @@ class MavenCoordProducer:
     def __init__(self, server_address):
         self.server_address = server_address
         self.kafka_producer = KafkaProducer(bootstrap_servers=[server_address],
-                                            value_serializer=lambda m: json.dumps(m).encode('utf-8'))
+                                            value_serializer=lambda m: json.dumps(m).encode('utf-8'), api_version=(2,2,0))
 
     def put(self, mvn_coords):
         """
@@ -312,13 +312,12 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
                 mvn_coords['date'] = str(convert_to_unix_epoch(mvn_coords['date']))
                 print(mvn_coords['date'])
                 mvn_coord_producer.put(mvn_coords)
+                mvn_coord_producer.kafka_producer.flush()
 
         #print("R: ", r)
         save_queue([[items.url, items.file_h, items.timestamp] for items in list(q)], queue_file)
 
-    mvn_coord_producer.kafka_producer.flush()
-
-
+    
 def extract_page_links(url):
     """
     Extracts all the links in a web page.
