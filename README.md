@@ -12,5 +12,5 @@ docker build -t maven_crawler .
 
 Run the Docker image (example):
 ```
-docker run maven_crawler --m "http://repo2.maven.apache.org/maven2/" --p "./maven2" --c 0.3 --h localhost-30001
+docker run maven_crawler --m "http://repo2.maven.apache.org/maven2/" --p "./maven2" --q q_items.txt --c 0.3 --h localhost:30001
 ```
