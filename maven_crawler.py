@@ -267,7 +267,7 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
     #r = 1
     j = 0
 
-    while len(q) != 0 and j <= 7:
+    while len(q) != 0:
 
         # Picks one item from the beginning of the queue
         u = q.popleft()
