@@ -140,11 +140,16 @@ def process_pom_file(path):
     pom_file = open(path, 'rb').read()
     soup = BeautifulSoup(pom_file)
 
-    group_id = soup.find('groupid').get_text()
-    artifact_id = soup.find('artifactid').get_text()
-    version = soup.find('version').get_text()
+    group_id = soup.find('groupid')
+    artifact_id = soup.find('artifactid')
+    version = soup.find('version')
 
-    return {'groupId': group_id, 'artifactId': artifact_id, 'version': version, 'date': ''}
+    if group_id is not None and artifact_id is not None and version is not None:
+
+        return {'groupId': group_id.get_text(), 'artifactId': artifact_id.get_text(), 'version': version.get_text(),
+                'date': ''}
+    else:
+        return None
 
 
 # def extract_pom_files(url, dest, next_sibling, cooldown, mvn_coord_producer):
@@ -290,7 +295,6 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
 
         elif bool(re.match(r".+\.pom$", u.url)):
             print("Found a POM file: ", u.url)
-            j += 1
 
             # Checks whether the POM file is already downloaded.
             if not isfile(join(dest, u.file_h)):
@@ -303,16 +307,25 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
 
             mvn_coords = process_pom_file(join(dest, u.file_h))
 
-            # TODO: For some projects, timestamp is not retrieved properly!
-            timestamp = u.timestamp.split()
-            mvn_coords['date'] = timestamp[0] + " " + timestamp[1]
-            print(mvn_coords['date'])
+            # Puts Maven coordinates into the Kafka topic if the POM file is valid
+            # A valid POM file should have groupID, artifactID, and version.
+            if mvn_coords is not None:
 
-            if mvn_coords['date'] != "- -":
-                mvn_coords['date'] = str(convert_to_unix_epoch(mvn_coords['date']))
+                # TODO: For some projects, timestamp is not retrieved properly!
+                timestamp = u.timestamp.split()
+                mvn_coords['date'] = timestamp[0] + " " + timestamp[1]
                 print(mvn_coords['date'])
-                mvn_coord_producer.put(mvn_coords)
-                mvn_coord_producer.kafka_producer.flush()
+
+                if mvn_coords['date'] != "- -":
+                    mvn_coords['date'] = str(convert_to_unix_epoch(mvn_coords['date']))
+                    print(mvn_coords['date'])
+                    mvn_coord_producer.put(mvn_coords)
+                    mvn_coord_producer.kafka_producer.flush()
+
+                    j += 1
+
+            else:
+                print("Skipped - not a valid POM file - %s\n" % u.url)
 
         #print("R: ", r)
         save_queue([[items.url, items.file_h, items.timestamp] for items in list(q)], queue_file)
