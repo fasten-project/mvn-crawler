@@ -22,6 +22,7 @@ from bs4 import BeautifulSoup
 from kafka import KafkaProducer
 from urllib.request import urlopen
 from urllib.parse import urlparse, urljoin
+from urllib.error import URLError
 from os.path import split, exists, join, isfile
 from collections import deque
 from os import makedirs
@@ -269,10 +270,7 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
     # save_queue([[i.url, i.file_h, i.timestamp] for i in links_list], "q_items.txt")
     # print([[i.url, i.file_h, i.timestamp] for i in links_list])
 
-    #r = 1
-    j = 0
-
-    while len(q) != 0 and j <= 7:
+    while len(q) != 0:
 
         # Picks one item from the beginning of the queue
         u = q.popleft()
@@ -286,12 +284,15 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
             # Wait before sending a request
             time.sleep(cooldown)
 
-            #r += 1
             # Skips the up-level dir. (e.g. \..)
-            for pl in extract_page_links(u.url)[1:]:
-                #print("URL:", urljoin(u.url, pl['href']), "FH: ", join(u.file_h, pl['href']), "TS: ", pl.next_sibling.strip())
+            page_links = extract_page_links(u.url)[1:]
 
-                q.appendleft(PageLink(urljoin(u.url, pl['href']), join(u.file_h, pl['href']), pl.next_sibling.strip()))
+            if page_links is not None:
+
+                for pl in page_links:
+                    #print("URL:", urljoin(u.url, pl['href']), "FH: ", join(u.file_h, pl['href']), "TS: ", pl.next_sibling.strip())
+
+                    q.appendleft(PageLink(urljoin(u.url, pl['href']), join(u.file_h, pl['href']), pl.next_sibling.strip()))
 
         elif bool(re.match(r".+\.pom$", u.url)):
             print("Found a POM file: ", u.url)
@@ -314,15 +315,13 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
                 # TODO: For some projects, timestamp is not retrieved properly!
                 timestamp = u.timestamp.split()
                 mvn_coords['date'] = timestamp[0] + " " + timestamp[1]
-                print(mvn_coords['date'])
 
                 if mvn_coords['date'] != "- -":
                     mvn_coords['date'] = str(convert_to_unix_epoch(mvn_coords['date']))
-                    print(mvn_coords['date'])
+                    print("cord: %s | t: %s " % (mvn_coords['groupId'] + ":" + mvn_coords['artifactId'] + ":" +
+                                                 mvn_coords['version'], mvn_coords['date']))
                     mvn_coord_producer.put(mvn_coords)
                     mvn_coord_producer.kafka_producer.flush()
-
-                    j += 1
 
             else:
                 print("Skipped - not a valid POM file - %s\n" % u.url)
@@ -338,9 +337,16 @@ def extract_page_links(url):
     :return:
     """
 
-    page_content = urlopen(url).read()
-    soup = BeautifulSoup(page_content, 'html.parser')
-    return soup.find_all('a', href=True)
+    try:
+
+        page_content = urlopen(url).read()
+        soup = BeautifulSoup(page_content, 'html.parser')
+        return soup.find_all('a', href=True)
+
+    except URLError:
+
+        print("Cannot explore this path: %s" % url)
+        return None
 
 
 if __name__ == '__main__':
