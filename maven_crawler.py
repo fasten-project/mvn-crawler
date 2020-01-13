@@ -284,12 +284,12 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
             # Wait before sending a request
             time.sleep(cooldown)
 
-            # Skips the up-level dir. (e.g. \..)
-            page_links = extract_page_links(u.url)[1:]
+            page_links = extract_page_links(u.url)
 
             if page_links is not None:
 
-                for pl in page_links:
+                # Skips the up-level dir. (e.g. \..)
+                for pl in page_links[1:]:
                     #print("URL:", urljoin(u.url, pl['href']), "FH: ", join(u.file_h, pl['href']), "TS: ", pl.next_sibling.strip())
 
                     q.appendleft(PageLink(urljoin(u.url, pl['href']), join(u.file_h, pl['href']), pl.next_sibling.strip()))
