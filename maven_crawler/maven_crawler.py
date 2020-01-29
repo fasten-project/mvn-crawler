@@ -30,6 +30,7 @@ from datetime import datetime
 import re
 import csv
 import time
+import sys
 import json
 import warnings
 import argparse
@@ -37,6 +38,7 @@ import requests
 
 # GLOBAL
 MVN_PATH = None  # Path to save the maven repos.
+MVN_URL = "https://repo1.maven.org/maven2/"
 
 # Suppress BeautifulSoup's warnings
 #warnings.filterwarnings("ignore", category=UserWarning, module='bs4')
@@ -142,11 +144,21 @@ def process_pom_file(path):
     soup = BeautifulSoup(pom_file)
 
     group_id = soup.find('groupid')
-    artifact_id = soup.find('artifactid')
     version = soup.find('version')
+    artifact_id = None
+    #packaging = soup.find('packaging')
+
+    # TODO: Fix the case where the artifactID is extracted from the parent tag.
+    for a in soup.find_all('artifactid'):
+        if a.parent.name == 'project':
+            artifact_id = a
+            break
 
     if group_id is not None and artifact_id is not None and version is not None:
 
+        # TODO: Consider only POM files that have packaging: [jar, war, ear]
+        # There are cases where packaging tag is not present in the POM file but the package has a JAR file.
+        #if packaging is None or packaging.get_text() in ('jar', 'war', 'ear'):
         return {'groupId': group_id.get_text(), 'artifactId': artifact_id.get_text(), 'version': version.get_text(),
                 'date': ''}
     else:
@@ -242,6 +254,39 @@ def load_queue(path):
     return items
 
 
+def create_queue_after(after_org_name):
+    """
+    This creates a new queue after a specified org or a url.
+    :param after_org_name:
+    :return:
+    """
+
+    found_org_name = False
+    extracted_links = []
+    for u in extract_page_links(MVN_URL):
+
+        if u['href'] == after_org_name:
+            found_org_name = True
+            print("Found name")
+
+        if found_org_name:
+            if "/" in u['href']:
+                extracted_links.append([urljoin(MVN_URL, u['href']), u['href'], u.next_sibling.strip()])
+
+    save_queue(extracted_links, "./q_items_new.txt")
+
+
+def create_queue(url):
+    """
+    This creates a queue of given a URL.
+    :param url:
+    :return:
+    """
+
+    return [[urljoin(MVN_URL, u['href']), u['href'], u.next_sibling.strip()]for u in extract_page_links(urljoin(MVN_URL,
+                                                                                                                url))[1:]]
+
+
 def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
     """
     Extracts the POM files from given maven repository and puts them in a Kafka topic. It is a non-recursive approach
@@ -317,11 +362,17 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
                 mvn_coords['date'] = timestamp[0] + " " + timestamp[1]
 
                 if mvn_coords['date'] != "- -":
+
                     mvn_coords['date'] = str(convert_to_unix_epoch(mvn_coords['date']))
                     print("cord: %s | t: %s " % (mvn_coords['groupId'] + ":" + mvn_coords['artifactId'] + ":" +
                                                  mvn_coords['version'], mvn_coords['date']))
                     mvn_coord_producer.put(mvn_coords)
                     mvn_coord_producer.kafka_producer.flush()
+                else:
+                    print("A pom file without")
+                    print("cord: %s | t: %s " % (mvn_coords['groupId'] + ":" + mvn_coords['artifactId'] + ":" +
+                                                 mvn_coords['version'], mvn_coords['date']))
+                    sys.exit(2)
 
             else:
                 print("Skipped - not a valid POM file - %s\n" % u.url)
@@ -338,7 +389,6 @@ def extract_page_links(url):
     """
 
     try:
-
         page_content = urlopen(url).read()
         soup = BeautifulSoup(page_content, 'html.parser')
         return soup.find_all('a', href=True)
@@ -350,9 +400,8 @@ def extract_page_links(url):
 
 
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser(description="A Python crawler for getting Maven coordinates and put them in a Kafka topic.")
-    parser.add_argument("--m", required=True, type=str, help="The URL of Maven repositories")
+    parser.add_argument("--m", default=MVN_URL, type=str, help="The URL of Maven repositories")
     parser.add_argument("--p", required=True, type=str, help="The local path to save the POM files.")
     parser.add_argument("--q", required=True, type=str, help="The file of queue items")
     parser.add_argument("--c", default=0.5, type=float, help="How longs the crawler waits before sending a request")
@@ -363,5 +412,6 @@ if __name__ == '__main__':
 
     mvn_producer = MavenCoordProducer(args.h)
 
+    #create_queue("altrmi/")
     #extract_pom_files(args.m, '', None, args.c, mvn_producer)
     extract_pom_files(args.m, MVN_PATH, args.q, args.c, mvn_producer)
