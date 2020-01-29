@@ -62,7 +62,7 @@ class MavenCoordProducer:
         :return:
         """
 
-        self.kafka_producer.send('maven.packages', key=("%s:%s:%s" % (mvn_coords['groupId'], mvn_coords['artifactId'],
+        self.kafka_producer.send('fasten.maven.cords', key=("%s:%s:%s" % (mvn_coords['groupId'], mvn_coords['artifactId'],
                                                                   mvn_coords['version'])).encode('utf-8'),
                                  value=mvn_coords).add_callback(self.on_send_success).add_errback(self.on_send_error)
 
