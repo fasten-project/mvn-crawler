@@ -143,10 +143,18 @@ def process_pom_file(path):
     pom_file = open(path, 'rb').read()
     soup = BeautifulSoup(pom_file)
 
-    group_id = soup.find('groupid')
+    group_id = None
     version = soup.find('version')
     artifact_id = None
     #packaging = soup.find('packaging')
+
+    # Fixes a case where a wrong groupID is extracted from the parent tag.
+    for g in soup.find_all('groupid'):
+        if g.parent.name == 'project':
+            group_id = g
+            break
+        elif g.parent.name == 'parent':
+            group_id = g
 
     # TODO: Fix the case where the artifactID is extracted from the parent tag.
     for a in soup.find_all('artifactid'):
