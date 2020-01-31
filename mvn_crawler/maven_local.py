@@ -44,8 +44,10 @@ def extract_pom_local(repos_path, mvn_producer):
                         print(join(root, f))
                         maven_cord = process_pom_file(os.path.join(root, f))
                         if maven_cord is not None:
-                            print(urljoin(MVN_URL, join(root, f).split('maven2/')[1]))
-                            maven_cord['date'] = get_timestamp_pom(urljoin(MVN_URL, join(root, f).split('maven2/')[1]))
+                            pom_file_url = urljoin(MVN_URL, join(root, f).split('maven2/')[1])
+                            print(pom_file_url)
+                            maven_cord['date'] = get_timestamp_pom(pom_file_url)
+                            maven_cord['url'] = pom_file_url
 
                             mvn_producer.put(maven_cord)
                             mvn_producer.kafka_producer.flush()

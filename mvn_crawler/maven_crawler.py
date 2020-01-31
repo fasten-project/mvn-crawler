@@ -160,7 +160,7 @@ def process_pom_file(path):
         # There are cases where packaging tag is not present in the POM file but the package has a JAR file.
         #if packaging is None or packaging.get_text() in ('jar', 'war', 'ear'):
         return {'groupId': group_id.get_text(), 'artifactId': artifact_id.get_text(), 'version': version.get_text(),
-                'date': ''}
+                'date': '', 'url': ''}
     else:
         return None
 
@@ -360,6 +360,7 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
                 # TODO: For some projects, timestamp is not retrieved properly!
                 timestamp = u.timestamp.split()
                 mvn_coords['date'] = timestamp[0] + " " + timestamp[1]
+                mvn_coords['url'] = u.url  # POM file URL
 
                 if mvn_coords['date'] != "- -":
 
