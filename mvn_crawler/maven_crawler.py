@@ -49,10 +49,11 @@ class MavenCoordProducer:
     A Kafka producer for generating Maven coordinates.
     """
 
-    def __init__(self, server_address):
+    def __init__(self, server_address, topic):
         self.server_address = server_address
         self.kafka_producer = KafkaProducer(bootstrap_servers=[server_address],
                                             value_serializer=lambda m: json.dumps(m).encode('utf-8'), api_version=(2,2,0))
+        self.topic = topic
 
     def put(self, mvn_coords):
         """
@@ -62,7 +63,7 @@ class MavenCoordProducer:
         :return:
         """
 
-        self.kafka_producer.send('fasten.maven.cords', key=("%s:%s:%s" % (mvn_coords['groupId'], mvn_coords['artifactId'],
+        self.kafka_producer.send(self.topic, key=("%s:%s:%s" % (mvn_coords['groupId'], mvn_coords['artifactId'],
                                                                   mvn_coords['version'])).encode('utf-8'),
                                  value=mvn_coords).add_callback(self.on_send_success).add_errback(self.on_send_error)
 
@@ -414,12 +415,13 @@ if __name__ == '__main__':
     parser.add_argument("--p", required=True, type=str, help="The local path to save the POM files.")
     parser.add_argument("--q", required=True, type=str, help="The file of queue items")
     parser.add_argument("--c", default=0.5, type=float, help="How longs the crawler waits before sending a request")
+    parser.add_argument("--t", default="fasten.maven.cords", type=str, help="The name of a topic to put Maven coordinates into.")
     parser.add_argument("--h", default="localhost:9092", type=str, help="The address of Kafka cluster")
 
     args = parser.parse_args()
     MVN_PATH = args.p
 
-    mvn_producer = MavenCoordProducer(args.h)
+    mvn_producer = MavenCoordProducer(args.h, args.t)
 
     #create_queue("altrmi/")
     #extract_pom_files(args.m, '', None, args.c, mvn_producer)
