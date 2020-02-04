@@ -3,6 +3,12 @@ This repo contains code for crawling the Maven repos and extracting metadata abo
 The metadata is gathered from POM files.
 
 
+## Run 
+To start the Maven crawler on Linux in background, run the following command:
+```
+nohup python maven_crawler.py --m "https://repo1.maven.org/maven2/" --p "./maven2" --q q_items.txt --c 5 --h localhost:30001 &
+```
+
 ## Docker
 Build the Docker image:
 ```
