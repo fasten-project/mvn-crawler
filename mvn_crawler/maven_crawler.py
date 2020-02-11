@@ -296,7 +296,7 @@ def create_queue(url):
                                                                                                                 url))[1:]]
 
 
-def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
+def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer, limit):
     """
     Extracts the POM files from given maven repository and puts them in a Kafka topic. It is a non-recursive approach
     and uses a queue.
@@ -305,6 +305,7 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
     :param next_sibling:
     :param cooldown:
     :param mvn_coord_producer: An instance of MavenCoordProducer
+    :param limit: Number of POM files to be extracted
     :return:
     """
 
@@ -324,7 +325,10 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
     # save_queue([[i.url, i.file_h, i.timestamp] for i in links_list], "q_items.txt")
     # print([[i.url, i.file_h, i.timestamp] for i in links_list])
 
-    while len(q) != 0:
+    num_pom_ext = 0
+    limit_condition = lambda: num_pom_ext < limit if limit > 0 else lambda: True
+
+    while len(q) != 0 and limit_condition():
 
         # Picks one item from the beginning of the queue
         u = q.popleft()
@@ -378,6 +382,8 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
                                                  mvn_coords['version'], mvn_coords['date']))
                     mvn_coord_producer.put(mvn_coords)
                     mvn_coord_producer.kafka_producer.flush()
+                    num_pom_ext += 1
+
                 else:
                     print("A pom file without")
                     print("cord: %s | t: %s " % (mvn_coords['groupId'] + ":" + mvn_coords['artifactId'] + ":" +
@@ -390,7 +396,7 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer):
         #print("R: ", r)
         save_queue([[items.url, items.file_h, items.timestamp] for items in list(q)], queue_file)
 
-    
+
 def extract_page_links(url):
     """
     Extracts all the links in a web page.
@@ -417,6 +423,7 @@ if __name__ == '__main__':
     parser.add_argument("--c", default=0.5, type=float, help="How longs the crawler waits before sending a request")
     parser.add_argument("--t", default="fasten.maven.cords", type=str, help="The name of a topic to put Maven coordinates into.")
     parser.add_argument("--h", default="localhost:9092", type=str, help="The address of Kafka cluster")
+    parser.add_argument("--l", default=-1, type=int, help="The number of POM files to be extracted. -1 means unlimited.")
 
     args = parser.parse_args()
     MVN_PATH = args.p
@@ -425,4 +432,4 @@ if __name__ == '__main__':
 
     #create_queue("altrmi/")
     #extract_pom_files(args.m, '', None, args.c, mvn_producer)
-    extract_pom_files(args.m, MVN_PATH, args.q, args.c, mvn_producer)
+    extract_pom_files(args.m, MVN_PATH, args.q, args.c, mvn_producer, args.l)
