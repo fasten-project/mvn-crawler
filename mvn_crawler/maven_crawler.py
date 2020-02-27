@@ -27,12 +27,15 @@ from os.path import split, exists, join, isfile
 from collections import deque
 from os import makedirs
 from datetime import datetime
+# from queue import Queue, Empty
+# from concurrent.futures import ThreadPoolExecutor
+# from threading import get_ident
 import re
 import csv
 import time
 import sys
 import json
-import warnings
+# import warnings
 import argparse
 import requests
 
@@ -85,6 +88,134 @@ class PageLink:
         self.url = url
         self.file_h = file_h
         self.timestamp = timestamp
+
+# This is experimental and cannot be used for production.
+# class MavenCrawler:
+#     """
+#     A multi-threaded crawler for extracting POM files from Maven
+#     """
+#
+#     def __init__(self, maven_url, pom_files_path, queue_file, cooldown, kafka_producer, num_workers, limit):
+#
+#         self.maven_url = maven_url
+#         self.pom_files_path = pom_files_path
+#         self.cooldown = cooldown
+#         self.kafka_producer = kafka_producer
+#         self.limit = limit
+#         self.num_workers = num_workers
+#         self.queue_file = queue_file
+#
+#         self.queue = Queue()
+#         self.thread_pool: ThreadPoolExecutor = ThreadPoolExecutor(self.num_workers)
+#
+#     def load_queue(self):
+#
+#         if exists(self.queue_file):
+#             self.queue.queue = deque(load_queue(self.queue_file))
+#             print("Loaded the queue items from the file...")
+#         else:
+#             links_list = [PageLink(urljoin(self.maven_url, u['href']), u['href'], u.next_sibling.strip()) for u in
+#                           extract_page_links(self.maven_url)[1:]]
+#             self.queue.queue = deque(links_list)
+#             save_queue([[i.url, i.file_h, i.timestamp] for i in links_list], self.queue_file)
+#             print("Downloaded and saved the queue....")
+#
+#     def process_url(self, page_link: PageLink):
+#
+#         if not is_url_file(page_link.url):
+#             self.print_thread("URL: %s | FH: %s | TS: %s" % (page_link.url, page_link.file_h, page_link.timestamp))
+#             # print("Path: ", join(MVN_PATH, u.file_h))
+#             # Create directories same as the Maven's hierarchy
+#             if not exists(join(self.pom_files_path, page_link.file_h)):
+#                 makedirs(join(self.pom_files_path, page_link.file_h))
+#
+#             # Wait before sending a request
+#             time.sleep(self.cooldown)
+#
+#             page_links = extract_page_links(page_link.url)
+#
+#             if page_links is not None:
+#
+#                 # Skips the up-level dir. (e.g. \..)
+#                 for pl in page_links[1:]:
+#                     # print("URL:", urljoin(u.url, pl['href']), "FH: ", join(u.file_h, pl['href']), "TS: ", pl.next_sibling.strip())
+#                     self.queue.put(PageLink(urljoin(page_link.url, pl['href']), join(page_link.file_h, pl['href']),
+#                                             pl.next_sibling.strip()))
+#                     #q.appendleft(PageLink(urljoin(u.url, pl['href']), join(u.file_h, pl['href']), pl.next_sibling.strip()))
+#             return
+#
+#         elif bool(re.match(r".+\.pom$", page_link.url)):
+#             self.print_thread("Found a POM file: %s" % page_link.url)
+#
+#             # Checks whether the POM file is already downloaded.
+#             if not isfile(join(self.pom_files_path, page_link.file_h)):
+#
+#                 download_pom(page_link.url, join(self.pom_files_path, page_link.file_h))
+#                 self.print_thread("Downloaded %s" % join(self.pom_files_path, page_link.file_h))
+#
+#             else:
+#                 self.print_thread("File %s exits." % join(self.pom_files_path, page_link.file_h))
+#
+#             mvn_coords = process_pom_file(join(self.pom_files_path, page_link.file_h))
+#
+#             # Puts Maven coordinates into the Kafka topic if the POM file is valid
+#             # A valid POM file should have groupID, artifactID, and version.
+#             if mvn_coords is not None:
+#
+#                 # TODO: For some projects, timestamp is not retrieved properly!
+#                 timestamp = page_link.timestamp.split()
+#                 mvn_coords['date'] = timestamp[0] + " " + timestamp[1]
+#                 mvn_coords['url'] = page_link.url  # POM file URL
+#
+#                 if mvn_coords['date'] != "- -":
+#
+#                     mvn_coords['date'] = str(convert_to_unix_epoch(mvn_coords['date']))
+#                     self.print_thread("cord: %s | t: %s " % (mvn_coords['groupId'] + ":" + mvn_coords['artifactId'] + ":" +
+#                                                  mvn_coords['version'], mvn_coords['date']))
+#                     # mvn_coord_producer.put(mvn_coords)
+#                     # mvn_coord_producer.kafka_producer.flush()
+#                     # num_pom_ext += 1
+#                     return mvn_coords
+#
+#                 else:
+#                     print("A pom file without")
+#                     print("cord: %s | t: %s " % (mvn_coords['groupId'] + ":" + mvn_coords['artifactId'] + ":" +
+#                                                  mvn_coords['version'], mvn_coords['date']))
+#                     return
+#
+#             else:
+#                 self.print_thread("Skipped - not a valid POM file - %s\n" % page_link.url)
+#                 return
+#
+#     def print_thread(self, msg):
+#         print("[%d] %s" % (get_ident(), msg))
+#
+#     def post_process_url(self, mvn_coordinate):
+#
+#         if mvn_coordinate.result() is not None:
+#             self.kafka_producer.put(mvn_coordinate.result())
+#             self.kafka_producer.kafka_producer.flush()
+#
+#         save_queue([[items.url, items.file_h, items.timestamp] for items in list(self.queue.queue)], self.queue_file)
+#
+#     def start(self):
+#
+#         self.load_queue()
+#
+#         while True:
+#
+#             try:
+#                 url = self.queue.get(timeout=5)
+#                 print("Adding %s to thread pool" % url.url)
+#
+#                 job = self.thread_pool.submit(self.process_url, url)
+#                 job.add_done_callback(self.post_process_url)
+#
+#             except Empty:
+#                 print("Queue is empty.")
+#                 return
+#             except Exception as e:
+#                 print(e)
 
 
 def url_last_part(url):
@@ -168,11 +299,19 @@ def process_pom_file(path):
         # TODO: Consider only POM files that have packaging: [jar, war, ear]
         # There are cases where packaging tag is not present in the POM file but the package has a JAR file.
         #if packaging is None or packaging.get_text() in ('jar', 'war', 'ear'):
-        return {'groupId': group_id.get_text(), 'artifactId': artifact_id.get_text(), 'version': version.get_text(),
-                'date': '', 'url': ''}
+        return {'groupId': validate_str(group_id.get_text()), 'artifactId': validate_str(artifact_id.get_text()),
+                'version': validate_str(version.get_text()), 'date': '', 'url': ''}
     else:
         return None
 
+
+def validate_str(str):
+    """
+    This removes all the spaces, new line and tabs from a given string
+    :param str:
+    :return:
+    """
+    return ''.join(str.split())
 
 # def extract_pom_files(url, dest, next_sibling, cooldown, mvn_coord_producer):
 #     """
@@ -423,6 +562,7 @@ if __name__ == '__main__':
     parser.add_argument("--c", default=0.5, type=float, help="How longs the crawler waits before sending a request")
     parser.add_argument("--t", default="fasten.maven.cords", type=str, help="The name of a topic to put Maven coordinates into.")
     parser.add_argument("--h", default="localhost:9092", type=str, help="The address of Kafka cluster")
+    #parser.add_argument("--w", default=1, type=int, help="Number of workers")
     parser.add_argument("--l", default=-1, type=int, help="The number of POM files to be extracted. -1 means unlimited.")
 
     args = parser.parse_args()
@@ -433,3 +573,6 @@ if __name__ == '__main__':
     #create_queue("altrmi/")
     #extract_pom_files(args.m, '', None, args.c, mvn_producer)
     extract_pom_files(args.m, MVN_PATH, args.q, args.c, mvn_producer, args.l)
+
+    #mvn_crawler = MavenCrawler(args.m, args.p, args.q, args.c, mvn_producer, args.w, args.l)
+    #mvn_crawler.start()
