@@ -16,8 +16,6 @@
  * limitations under the License.
 """
 
-# Maven URL: "http://repo2.maven.apache.org/maven2/"
-
 from bs4 import BeautifulSoup
 from kafka import KafkaProducer
 from urllib.request import urlopen
@@ -27,24 +25,17 @@ from os.path import split, exists, join, isfile
 from collections import deque
 from os import makedirs
 from datetime import datetime
-# from queue import Queue, Empty
-# from concurrent.futures import ThreadPoolExecutor
-# from threading import get_ident
 import re
 import csv
 import time
 import sys
 import json
-# import warnings
 import argparse
 import requests
 
 # GLOBAL
 MVN_PATH = None  # Path to save the maven repos.
 MVN_URL = "https://repo1.maven.org/maven2/"
-
-# Suppress BeautifulSoup's warnings
-#warnings.filterwarnings("ignore", category=UserWarning, module='bs4')
 
 
 class MavenCoordProducer:
@@ -88,134 +79,6 @@ class PageLink:
         self.url = url
         self.file_h = file_h
         self.timestamp = timestamp
-
-# This is experimental and cannot be used for production.
-# class MavenCrawler:
-#     """
-#     A multi-threaded crawler for extracting POM files from Maven
-#     """
-#
-#     def __init__(self, maven_url, pom_files_path, queue_file, cooldown, kafka_producer, num_workers, limit):
-#
-#         self.maven_url = maven_url
-#         self.pom_files_path = pom_files_path
-#         self.cooldown = cooldown
-#         self.kafka_producer = kafka_producer
-#         self.limit = limit
-#         self.num_workers = num_workers
-#         self.queue_file = queue_file
-#
-#         self.queue = Queue()
-#         self.thread_pool: ThreadPoolExecutor = ThreadPoolExecutor(self.num_workers)
-#
-#     def load_queue(self):
-#
-#         if exists(self.queue_file):
-#             self.queue.queue = deque(load_queue(self.queue_file))
-#             print("Loaded the queue items from the file...")
-#         else:
-#             links_list = [PageLink(urljoin(self.maven_url, u['href']), u['href'], u.next_sibling.strip()) for u in
-#                           extract_page_links(self.maven_url)[1:]]
-#             self.queue.queue = deque(links_list)
-#             save_queue([[i.url, i.file_h, i.timestamp] for i in links_list], self.queue_file)
-#             print("Downloaded and saved the queue....")
-#
-#     def process_url(self, page_link: PageLink):
-#
-#         if not is_url_file(page_link.url):
-#             self.print_thread("URL: %s | FH: %s | TS: %s" % (page_link.url, page_link.file_h, page_link.timestamp))
-#             # print("Path: ", join(MVN_PATH, u.file_h))
-#             # Create directories same as the Maven's hierarchy
-#             if not exists(join(self.pom_files_path, page_link.file_h)):
-#                 makedirs(join(self.pom_files_path, page_link.file_h))
-#
-#             # Wait before sending a request
-#             time.sleep(self.cooldown)
-#
-#             page_links = extract_page_links(page_link.url)
-#
-#             if page_links is not None:
-#
-#                 # Skips the up-level dir. (e.g. \..)
-#                 for pl in page_links[1:]:
-#                     # print("URL:", urljoin(u.url, pl['href']), "FH: ", join(u.file_h, pl['href']), "TS: ", pl.next_sibling.strip())
-#                     self.queue.put(PageLink(urljoin(page_link.url, pl['href']), join(page_link.file_h, pl['href']),
-#                                             pl.next_sibling.strip()))
-#                     #q.appendleft(PageLink(urljoin(u.url, pl['href']), join(u.file_h, pl['href']), pl.next_sibling.strip()))
-#             return
-#
-#         elif bool(re.match(r".+\.pom$", page_link.url)):
-#             self.print_thread("Found a POM file: %s" % page_link.url)
-#
-#             # Checks whether the POM file is already downloaded.
-#             if not isfile(join(self.pom_files_path, page_link.file_h)):
-#
-#                 download_pom(page_link.url, join(self.pom_files_path, page_link.file_h))
-#                 self.print_thread("Downloaded %s" % join(self.pom_files_path, page_link.file_h))
-#
-#             else:
-#                 self.print_thread("File %s exits." % join(self.pom_files_path, page_link.file_h))
-#
-#             mvn_coords = process_pom_file(join(self.pom_files_path, page_link.file_h))
-#
-#             # Puts Maven coordinates into the Kafka topic if the POM file is valid
-#             # A valid POM file should have groupID, artifactID, and version.
-#             if mvn_coords is not None:
-#
-#                 # TODO: For some projects, timestamp is not retrieved properly!
-#                 timestamp = page_link.timestamp.split()
-#                 mvn_coords['date'] = timestamp[0] + " " + timestamp[1]
-#                 mvn_coords['url'] = page_link.url  # POM file URL
-#
-#                 if mvn_coords['date'] != "- -":
-#
-#                     mvn_coords['date'] = str(convert_to_unix_epoch(mvn_coords['date']))
-#                     self.print_thread("cord: %s | t: %s " % (mvn_coords['groupId'] + ":" + mvn_coords['artifactId'] + ":" +
-#                                                  mvn_coords['version'], mvn_coords['date']))
-#                     # mvn_coord_producer.put(mvn_coords)
-#                     # mvn_coord_producer.kafka_producer.flush()
-#                     # num_pom_ext += 1
-#                     return mvn_coords
-#
-#                 else:
-#                     print("A pom file without")
-#                     print("cord: %s | t: %s " % (mvn_coords['groupId'] + ":" + mvn_coords['artifactId'] + ":" +
-#                                                  mvn_coords['version'], mvn_coords['date']))
-#                     return
-#
-#             else:
-#                 self.print_thread("Skipped - not a valid POM file - %s\n" % page_link.url)
-#                 return
-#
-#     def print_thread(self, msg):
-#         print("[%d] %s" % (get_ident(), msg))
-#
-#     def post_process_url(self, mvn_coordinate):
-#
-#         if mvn_coordinate.result() is not None:
-#             self.kafka_producer.put(mvn_coordinate.result())
-#             self.kafka_producer.kafka_producer.flush()
-#
-#         save_queue([[items.url, items.file_h, items.timestamp] for items in list(self.queue.queue)], self.queue_file)
-#
-#     def start(self):
-#
-#         self.load_queue()
-#
-#         while True:
-#
-#             try:
-#                 url = self.queue.get(timeout=5)
-#                 print("Adding %s to thread pool" % url.url)
-#
-#                 job = self.thread_pool.submit(self.process_url, url)
-#                 job.add_done_callback(self.post_process_url)
-#
-#             except Empty:
-#                 print("Queue is empty.")
-#                 return
-#             except Exception as e:
-#                 print(e)
 
 
 def url_last_part(url):
@@ -313,68 +176,6 @@ def validate_str(str):
     """
     return ''.join(str.split())
 
-# def extract_pom_files(url, dest, next_sibling, cooldown, mvn_coord_producer):
-#     """
-#     It finds and downloads all the POM files same as the Maven repositories' hierarchy.
-#     :param url:
-#     :param dest: The path to save the maven dirs
-#     :param next_sibling:
-#     :param cooldown:
-#     :param kafka_producer: An instance of MavenCoordProducer
-#     :return:
-#     """
-#
-#     # Wait...
-#     time.sleep(cooldown)
-#
-#     page_content = urlopen(url).read()
-#     soup = BeautifulSoup(page_content, 'html.parser')
-#
-#     # Skips the up level dir (e.g. ../)
-#     for i, a in enumerate(soup.find_all('a', href=True)[1:]):
-#
-#         if i <= 5:
-#
-#             if not is_url_file(a['href']):
-#
-#                 # Create directories same as the Maven's hierarchy
-#                 if not exists(join(dest, dest, a['href'])):
-#                     makedirs(join(dest, dest, a['href']))
-#
-#                 #print("Found the url", a['href'])
-#                 extract_pom_files(urljoin(url, a['href']), join(dest, a['href']), a.next_sibling, cooldown, mvn_coord_producer)
-#
-#             elif bool(re.match(r".+\.pom$", a['href'])):
-#                 #print("Found a POM file: ", a['href'])
-#                 #print("Timestamp: ", next_sibling.split())
-#
-#                 # Checks whether the POM file is already downloaded.
-#                 if not isfile(join(dest, dest, a['href'])):
-#
-#                     download_pom(urljoin(url, a['href']), a['href'], join(dest, dest))
-#                     print("Downloaded %s" % join(dest, dest, a['href']))
-#
-#                 else:
-#                     print("File %s exits." % join(dest, dest, a['href']))
-#
-#                 mvn_coords = process_pom_file(join(dest, dest, a['href']))
-#
-#                 # TODO: For some projects, timestamp is not retrieved properly!
-#                 timestamp = next_sibling.split()
-#                 mvn_coords['date'] = timestamp[0] + " " + timestamp[1]
-#
-#                 if mvn_coords['date'] != "- -":
-#                     mvn_coords['date'] = str(convert_to_unix_epoch(mvn_coords['date']))
-#                     print(mvn_coords['date'])
-#                     mvn_coord_producer.put(mvn_coords)
-#
-#                 #csv_writer[0].writerow([gid, aid, ver, timestamp[0] + " " + timestamp[1]])
-#                 #csv_writer[1].flush()
-#         else:
-#             break
-#
-#         mvn_coord_producer.kafka_producer.flush()
-
 
 def save_queue(items, path):
     """
@@ -387,6 +188,7 @@ def save_queue(items, path):
     with open(path, 'w', newline="") as f:
         writer = csv.writer(f)
         writer.writerows(items)
+
 
 def load_queue(path):
     """
@@ -457,13 +259,6 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer, limit
         save_queue([[i.url, i.file_h, i.timestamp] for i in links_list], queue_file)
         print("Downloaded and saved the queue....")
 
-    # A queue
-    #q = deque([PageLink(urljoin(url, u['href']), u['href'], u.next_sibling.strip()) for u in extract_page_links(url)[1:]])
-    # links_list = [PageLink(urljoin(url, u['href']), u['href'], u.next_sibling.strip()) for u in extract_page_links(url)[1:]]
-    # q = deque(links_list)
-    # save_queue([[i.url, i.file_h, i.timestamp] for i in links_list], "q_items.txt")
-    # print([[i.url, i.file_h, i.timestamp] for i in links_list])
-
     num_pom_ext = 0
     limit_condition = lambda: num_pom_ext < limit if limit > 0 else lambda: True
 
@@ -524,15 +319,13 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer, limit
                     num_pom_ext += 1
 
                 else:
-                    print("A pom file without")
+                    print("A pom file without timestamp!")
                     print("cord: %s | t: %s " % (mvn_coords['groupId'] + ":" + mvn_coords['artifactId'] + ":" +
                                                  mvn_coords['version'], mvn_coords['date']))
-                    sys.exit(2)
 
             else:
                 print("Skipped - not a valid POM file - %s\n" % u.url)
 
-        #print("R: ", r)
         save_queue([[items.url, items.file_h, items.timestamp] for items in list(q)], queue_file)
 
 
@@ -555,24 +348,18 @@ def extract_page_links(url):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="A Python crawler for getting Maven coordinates and put them in a Kafka topic.")
+
+    parser = argparse.ArgumentParser(description="A crawler for gathering Maven coordinates and put them in a Kafka topic.")
     parser.add_argument("--m", default=MVN_URL, type=str, help="The URL of Maven repositories")
-    parser.add_argument("--p", required=True, type=str, help="The local path to save the POM files.")
+    parser.add_argument("--p", required=True, type=str, help="A path to save the POM files on the disk")
     parser.add_argument("--q", required=True, type=str, help="The file of queue items")
-    parser.add_argument("--c", default=0.5, type=float, help="How longs the crawler waits before sending a request")
-    parser.add_argument("--t", default="fasten.maven.cords", type=str, help="The name of a topic to put Maven coordinates into.")
-    parser.add_argument("--h", default="localhost:9092", type=str, help="The address of Kafka cluster")
-    #parser.add_argument("--w", default=1, type=int, help="Number of workers")
+    parser.add_argument("--c", default=0.5, type=float, help="How long the crawler waits before sending a request")
+    parser.add_argument("--t", default="fasten.mvn.pkg", type=str, help="The name of a Kafka topic to put Maven coordinates into.")
+    parser.add_argument("--h", default="localhost:9092", type=str, help="The address of Kafka server")
     parser.add_argument("--l", default=-1, type=int, help="The number of POM files to be extracted. -1 means unlimited.")
 
     args = parser.parse_args()
     MVN_PATH = args.p
 
     mvn_producer = MavenCoordProducer(args.h, args.t)
-
-    #create_queue("altrmi/")
-    #extract_pom_files(args.m, '', None, args.c, mvn_producer)
     extract_pom_files(args.m, MVN_PATH, args.q, args.c, mvn_producer, args.l)
-
-    #mvn-crawler = MavenCrawler(args.m, args.p, args.q, args.c, mvn_producer, args.w, args.l)
-    #mvn-crawler.start()
