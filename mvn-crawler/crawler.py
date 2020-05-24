@@ -574,5 +574,5 @@ if __name__ == '__main__':
     #extract_pom_files(args.m, '', None, args.c, mvn_producer)
     extract_pom_files(args.m, MVN_PATH, args.q, args.c, mvn_producer, args.l)
 
-    #mvn_crawler = MavenCrawler(args.m, args.p, args.q, args.c, mvn_producer, args.w, args.l)
-    #mvn_crawler.start()
+    #mvn-crawler = MavenCrawler(args.m, args.p, args.q, args.c, mvn_producer, args.w, args.l)
+    #mvn-crawler.start()
