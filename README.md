@@ -1,4 +1,6 @@
 # Maven Crawler
+[![PyPI version](https://badge.fury.io/py/mvncrawler.svg)](https://badge.fury.io/py/mvncrawler)
+
 This is a tool for crawling Maven repositories and gathering Maven coordinates.
 It can be used for research and education purposes.
 
