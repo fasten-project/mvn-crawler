@@ -347,16 +347,22 @@ def extract_page_links(url):
         return None
 
 
-if __name__ == '__main__':
+def main():
+    """
+    Starts the crawler with user-provided CLI arguments
+    """
 
-    parser = argparse.ArgumentParser(description="A crawler for gathering Maven coordinates and put them in a Kafka topic.")
+    parser = argparse.ArgumentParser(
+        description="A crawler for gathering Maven coordinates and put them in a Kafka topic.")
     parser.add_argument("--m", default=MVN_URL, type=str, help="The URL of Maven repositories")
     parser.add_argument("--p", required=True, type=str, help="A path to save the POM files on the disk")
     parser.add_argument("--q", required=True, type=str, help="The file of queue items")
     parser.add_argument("--c", default=0.5, type=float, help="How long the crawler waits before sending a request")
-    parser.add_argument("--t", default="fasten.mvn.pkg", type=str, help="The name of a Kafka topic to put Maven coordinates into.")
+    parser.add_argument("--t", default="fasten.mvn.pkg", type=str,
+                        help="The name of a Kafka topic to put Maven coordinates into.")
     parser.add_argument("--h", default="localhost:9092", type=str, help="The address of Kafka server")
-    parser.add_argument("--l", default=-1, type=int, help="The number of POM files to be extracted. -1 means unlimited.")
+    parser.add_argument("--l", default=-1, type=int,
+                        help="The number of POM files to be extracted. -1 means unlimited.")
 
     args = parser.parse_args()
     MVN_PATH = args.p

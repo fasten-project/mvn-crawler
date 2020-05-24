@@ -16,6 +16,8 @@
  * limitations under the License.
 """
 
+from mvn_crawler.crawler import main
+
 if __name__ == '__main__':
 
-    pass
+    main()
