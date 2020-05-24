@@ -250,6 +250,14 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer, limit
     :return:
     """
 
+    if mvn_coord_producer is None:
+        json_mvn_pkg = open("mvn.pkg.json", 'a')
+        send_cords = lambda x: json_mvn_pkg.write(json.dumps(x) + "\n")
+        print("Stores the extracted Maven coordinates in mvn.pkg.json file")
+    else:
+        send_cords = lambda x: [mvn_coord_producer.put(x), mvn_coord_producer.kafka_producer.flush()]
+        print(f"Sends the extracted Maven coordinates to {mvn_coord_producer.topic} Kafka topic")
+
     if exists(queue_file):
         q = deque(load_queue(queue_file))
         print("Loaded the queue items from the file...")
@@ -314,8 +322,7 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer, limit
                     mvn_coords['date'] = str(convert_to_unix_epoch(mvn_coords['date']))
                     print("cord: %s | t: %s " % (mvn_coords['groupId'] + ":" + mvn_coords['artifactId'] + ":" +
                                                  mvn_coords['version'], mvn_coords['date']))
-                    mvn_coord_producer.put(mvn_coords)
-                    mvn_coord_producer.kafka_producer.flush()
+                    send_cords(mvn_coords)
                     num_pom_ext += 1
 
                 else:
@@ -328,6 +335,8 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer, limit
 
         save_queue([[items.url, items.file_h, items.timestamp] for items in list(q)], queue_file)
 
+    if mvn_coord_producer is None:
+        json_mvn_pkg.close()
 
 def extract_page_links(url):
     """
@@ -357,15 +366,19 @@ def main():
     parser.add_argument("--m", default=MVN_URL, type=str, help="The URL of Maven repositories")
     parser.add_argument("--p", required=True, type=str, help="A path to save the POM files on the disk")
     parser.add_argument("--q", required=True, type=str, help="The file of queue items")
-    parser.add_argument("--c", default=0.5, type=float, help="How long the crawler waits before sending a request")
+    parser.add_argument("--c", default=5.0, type=float,
+                        help="How long the crawler waits before sending a request (in sec.)")
+    parser.add_argument("--no-kafka", dest='no_kafka', action='store_true',
+                        help="Stores the extracted Maven coordinates in a JSON file rather than in a Kafka topic.")
     parser.add_argument("--t", default="fasten.mvn.pkg", type=str,
                         help="The name of a Kafka topic to put Maven coordinates into.")
     parser.add_argument("--h", default="localhost:9092", type=str, help="The address of Kafka server")
     parser.add_argument("--l", default=-1, type=int,
                         help="The number of POM files to be extracted. -1 means unlimited.")
+    parser.set_defaults(no_kafka=False)
 
     args = parser.parse_args()
     MVN_PATH = args.p
 
-    mvn_producer = MavenCoordProducer(args.h, args.t)
-    extract_pom_files(args.m, MVN_PATH, args.q, args.c, mvn_producer, args.l)
+    extract_pom_files(args.m, MVN_PATH, args.q, args.c,
+                      None if args.no_kafka else MavenCoordProducer(args.h, args.t), args.l)
