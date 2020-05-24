@@ -1,34 +1,27 @@
-# maven-crawler
-This repo contains code for crawling the Maven repos and extracting metadata about projects.
-The metadata is gathered from POM files.
+# Maven Crawler
+This is a tool for crawling Maven repositories and gathering Maven coordinates.
+It can be used for research and education purposes.
+
+# Installation
+## Requirements
+
+- Python 3.5 or newer
+- [Apache Kafka](https://kafka.apache.org/quickstart) (**optional**)
+
+## Quick install
+```
+pip install mvncrawler
+```
 
 
-## Run 
-To start the Maven crawler on Linux in background, run the following command:
+# Usage
 ```
-nohup python maven_crawler.py --m "https://repo1.maven.org/maven2/" --p "./maven2" --q q_items.txt --c 5 --h localhost:30001 &
+mvncrawler --p ./maven/ --q q_items.txt  --t "fasten.mvn.pkg" --c 5 --l 10
 ```
-To extracted a limited number of Maven coordinates, run below command:
-```
-nohup python maven_crawler.py --m "https://repo1.maven.org/maven2/" --p "./maven2" --q q_items.txt --c 5 --h localhost:30001 --l 10 &
-```
-The above command extracts only 10 Maven coordinates and saves the queue in the current working directory. To change the limit, assign a positive value to arg `--l`.
+It extracts 10 Maven coordinates. 
+- Use `--help` option to see the description of each arguments.
+- If you do not have a Kafka server on your machine, add `--no-kafka` option to the tool for saving Maven coordinates in a file.
+- You can remove `--l 10` option to extract Maven coordinates without a limit.
 
-## Docker
-Build the Docker image:
-```
-docker build -t maven_crawler .
-```
-
-To start the crawler and extract 10 Maven coordinates, run the following command based on your OS:
-
-* **Linux**:
-```
-docker run --network="host" --it maven_crawler --m "https://repo1.maven.org/maven2/" --p "./maven2" --q q_items.txt --c 5 --t maven.packages --h localhost:9092 --l 10
-```
-* **macOS**:
-```
-docker run --it maven_crawler --m "https://repo1.maven.org/maven2/" --p "./maven2" --q q_items.txt --c 5 --t maven.packages --h host.docker.internal:9092 --l 10
-```
-
-To crawl the entire Maven repos, remove `--l` arg from the above commands.
+# Disclaimer
+We are NOT responsible for any damage or the misuse of this tool.
