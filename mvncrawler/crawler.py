@@ -338,6 +338,7 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer, limit
     if mvn_coord_producer is None:
         json_mvn_pkg.close()
 
+
 def extract_page_links(url):
     """
     Extracts all the links in a web page.
@@ -350,9 +351,10 @@ def extract_page_links(url):
         soup = BeautifulSoup(page_content, 'html.parser')
         return soup.find_all('a', href=True)
 
-    except URLError:
+    except (URLError, UnicodeEncodeError) as e:
 
         print("Cannot explore this path: %s" % url)
+        print(e)
         return None
 
 
