@@ -139,7 +139,7 @@ def process_pom_file(path):
     soup = BeautifulSoup(pom_file)
 
     group_id = None
-    version = soup.find('version')
+    version = None
     artifact_id = None
     #packaging = soup.find('packaging')
 
@@ -151,10 +151,16 @@ def process_pom_file(path):
         elif g.parent.name == 'parent':
             group_id = g
 
-    # TODO: Fix the case where the artifactID is extracted from the parent tag.
+    # Fixes the case where the artifactID is extracted from the parent tag.
     for a in soup.find_all('artifactid'):
         if a.parent.name == 'project':
             artifact_id = a
+            break
+
+    # Fixes the case where the version is extracted from the parent tag.
+    for v in soup.find_all('version'):
+        if v.parent.name == 'project':
+            version = v
             break
 
     if group_id is not None and artifact_id is not None and version is not None:
