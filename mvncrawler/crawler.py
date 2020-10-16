@@ -298,7 +298,8 @@ def extract_pom_files(url, dest, queue_file, cooldown, mvn_coord_producer, limit
                 for pl in page_links[1:]:
                     #print("URL:", urljoin(u.url, pl['href']), "FH: ", join(u.file_h, pl['href']), "TS: ", pl.next_sibling.strip())
 
-                    q.appendleft(PageLink(urljoin(u.url, pl['href']), join(u.file_h, pl['href']), pl.next_sibling.strip()))
+                    if urljoin(u.url, pl['href']) != u.url:
+                        q.appendleft(PageLink(urljoin(u.url, pl['href']), join(u.file_h, pl['href']), pl.next_sibling.strip()))
 
         elif bool(re.match(r".+\.pom$", u.url)):
             print("Found a POM file: ", u.url)
