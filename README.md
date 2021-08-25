@@ -1,4 +1,7 @@
 # Maven Crawler
+
+⚠ Archived repository: this repository is now archive. It has been superseded by [Incremental Maven Crawler](https://github.com/fasten-project/incremental-maven-crawler).
+
 [![PyPI version](https://badge.fury.io/py/mvncrawler.svg)](https://badge.fury.io/py/mvncrawler)
 
 This is a tool for crawling Maven repositories and gathering Maven coordinates.
